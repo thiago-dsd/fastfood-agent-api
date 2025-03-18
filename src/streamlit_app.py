@@ -142,6 +142,8 @@ async def main() -> None:
 
     if len(messages) == 0:
         match agent_client.agent:
+            case "fastfood-agent":
+                WELCOME = "Olá! Eu sou o FastFood, seu assistente virtual para pedidos de comida. Posso ajudar você a fazer seu pedido de forma rápida e fácil. É só me dizer o que você gostaria de pedir hoje! "
             case "chatbot":
                 WELCOME = "Hello! I'm a simple chatbot. Ask me anything!"
             case "interrupt-agent":
