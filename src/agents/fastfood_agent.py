@@ -1,6 +1,6 @@
 from datetime import datetime
-from typing import Optional, cast
-
+from typing import Literal, Optional, cast
+import logging
 from langchain.prompts import SystemMessagePromptTemplate
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
@@ -9,15 +9,12 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, MessagesState, StateGraph
 from langgraph.types import interrupt
 from pydantic import BaseModel, Field
-
 from core import get_model, settings
-
 
 class AgentState(MessagesState, total=False):
     """Estado do agente para o FastFood."""
-    order_details: Optional[dict]  # Detalhes do pedido
-    confirmed: bool  # Indica se o pedido foi confirmado
-
+    order_details: str
+    confirmed: bool  
 
 def wrap_model(model: BaseChatModel, system_prompt: SystemMessage) -> RunnableSerializable[AgentState, AIMessage]:
     """Encapsula o modelo com um prompt de sistema."""
@@ -28,11 +25,10 @@ def wrap_model(model: BaseChatModel, system_prompt: SystemMessage) -> RunnableSe
     return preprocessor | model
 
 
-# Prompts do sistema
 order_capture_prompt = SystemMessagePromptTemplate.from_template("""
-Você é um assistente de pedidos do FastFood. Sua tarefa é ajudar o usuário a fazer seu pedido de forma rápida e fácil.
-Pergunte ao usuário o que ele gostaria de pedir e confirme os detalhes antes de finalizar.
-Seja claro e amigável!
+Você é um assistente de pedidos do FastFood. Sua tarefa é extrair os detalhes do pedido do usuário a partir do histórico de conversas.
+Extraia os itens, quantidades e personalizações mencionados pelo usuário.
+Se não houver detalhes suficientes, explique o que está faltando.
 """)
 
 confirmation_prompt = SystemMessagePromptTemplate.from_template("""
@@ -42,82 +38,79 @@ Se o usuário quiser corrigir algo, peça para ele fornecer os detalhes atualiza
 Seja paciente e educado!
 """)
 
-
 async def capture_order(state: AgentState, config: RunnableConfig) -> AgentState:
-    """Captura os detalhes do pedido do usuário."""
+    """Este nó examina o histórico da conversa para determinar os detalhes do pedido como uma string.
+    Se não houver detalhes suficientes, ele solicitará mais informações."""
     m = get_model(config["configurable"].get("model", settings.DEFAULT_MODEL))
     model_runnable = wrap_model(m, order_capture_prompt.format())
+
+    response = await model_runnable.ainvoke(state, config)
+
+    order_details = response.content.strip()
+
+    if not order_details or len(order_details.strip()) < 5:
+        capture_input = interrupt(f"Parece que seu pedido está incompleto. Por favor, me informe mais detalhes.")
+        state["messages"].append(HumanMessage(capture_input))
+        return await capture_order(state, config)
     
-    # Se não houver pedido capturado ainda, pergunte ao usuário
-    if not state.get("order_details"):
-        response = await model_runnable.ainvoke({"messages": [HumanMessage(content="Olá! O que você gostaria de pedir hoje?")]}, config)
-    else:
-        response = await model_runnable.ainvoke(state, config)
 
-    # Extrai os detalhes do pedido da resposta do modelo
-    order_details = extract_order_details(response.content)
-    return {"order_details": order_details, "messages": [response]}
-
+    state["messages"].append(AIMessage("Detalhes do pedido capturados com sucesso!"))
+    return {
+        "confirmed": False,
+        "order_details": order_details
+    }
 
 async def confirm_order(state: AgentState, config: RunnableConfig) -> AgentState:
     """Confirma os detalhes do pedido com o usuário."""
     m = get_model(config["configurable"].get("model", settings.DEFAULT_MODEL))
     model_runnable = wrap_model(m, confirmation_prompt.format())
 
-    # Resume o pedido para o usuário
-    order_summary = format_order_summary(state["order_details"])
-    response = await model_runnable.ainvoke(
-        {"messages": [HumanMessage(content=f"Por favor, confirme seu pedido:\n{order_summary}\n\nEstá correto? (sim/não)")]},
-        config,
+    confirm_input = interrupt(
+        f"Seu pedido:\n{state.get('order_details')}\n\n"
+        "Por favor, escolha uma opção:\n"
+        "1) Confirmar pedido\n"
+        "2) Alterar pedido"
     )
+    state["messages"].append(HumanMessage(confirm_input))
 
-    # Verifica se o usuário confirmou o pedido
-    if "sim" in response.content.lower():
-        return {"confirmed": True, "messages": [response]}
+    user_response = confirm_input.strip()
+    if user_response == "1":
+        state["messages"].append(AIMessage(interrupt("Pedido confirmado")))
+        return {"confirmed": True}
+    elif user_response == "2":
+        state["messages"].append(AIMessage(interrupt("Certo, vamos alterar os pedidos!")))
+        return {"confirmed": False}
     else:
-        return {"confirmed": False, "messages": [response]}
-
+        state["messages"].append(AIMessage(interrupt("Desculpe, não entendi. Por favor, escolha uma opção:\n1) Confirmar pedido\n2) Alterar pedido")))
+        return {"confirmed": False}
 
 async def register_order(state: AgentState, config: RunnableConfig) -> AgentState:
-    """Registra o pedido no banco de dados."""
-    if not state.get("confirmed"):
-        raise ValueError("Pedido não confirmado.")
+    """Registra o pedido no banco de dados e finaliza o fluxo."""
+    order_id = register_order_in_db(state.get('order_details'))
 
-    # Simula o registro no banco de dados
-    order_id = register_order_in_db(state["order_details"])
-    return {"messages": [AIMessage(content=f"✅ Pedido registrado com sucesso! Número do pedido: {order_id}\nAgradecemos sua preferência!")]}
+    final_message = (
+        f"✅ Pedido registrado com sucesso! Número do pedido: {order_id}\n"
+        "Agradecemos sua preferência! Seu pedido já está a caminho. 🚚\n"
+        "Se quiser fazer outro pedido, é só mandar uma mensagem aqui no chat!"
+    )
 
+    state["messages"].append(AIMessage(interrupt(final_message)))
 
-# Função auxiliar para extrair detalhes do pedido
-def extract_order_details(text: str) -> dict:
-    """Extrai os detalhes do pedido do texto."""
-    # Implemente a lógica de extração aqui (ex.: usar regex ou um modelo de NLP)
-    return {"items": [], "quantities": [], "customizations": []}
-
-
-# Função auxiliar para formatar o resumo do pedido
-def format_order_summary(order_details: dict) -> str:
-    """Formata os detalhes do pedido para exibição ao usuário."""
-    items = order_details.get("items", [])
-    quantities = order_details.get("quantities", [])
-    customizations = order_details.get("customizations", [])
-
-    summary = "Seu pedido:\n"
-    for item, quantity in zip(items, quantities):
-        summary += f"- {quantity}x {item}\n"
-    if customizations:
-        summary += "Personalizações:\n"
-        for customization in customizations:
-            summary += f"- {customization}\n"
-    return summary
-
+    return
 
 # Função auxiliar para registrar o pedido no banco de dados
-def register_order_in_db(order_details: dict) -> str:
+def register_order_in_db(order_details: str) -> str:
     """Registra o pedido no banco de dados e retorna o ID."""
     # Implemente a lógica de registro aqui
     return "12345"  # Simula um ID de pedido
 
+
+def check_confirmation(state: AgentState) -> Literal["register_order", "capture_order"]:
+    """Verifica se o pedido foi confirmado e retorna o próximo nó."""
+    if state.get("confirmed"):
+        return "register_order"
+    else:
+        return "capture_order"
 
 # Define o grafo do agente
 agent = StateGraph(AgentState)
@@ -126,13 +119,16 @@ agent.add_node("confirm_order", confirm_order)
 agent.add_node("register_order", register_order)
 
 agent.set_entry_point("capture_order")
+
 agent.add_edge("capture_order", "confirm_order")
+agent.add_edge("confirm_order", "register_order")
+agent.add_edge("register_order", END)
+
 agent.add_conditional_edges(
     "confirm_order",
-    lambda state: "register_order" if state.get("confirmed") else "capture_order",
+    check_confirmation,
     {"register_order": "register_order", "capture_order": "capture_order"},
 )
-agent.add_edge("register_order", END)
 
 # Compila o agente
 fastfood_agent = agent.compile(checkpointer=MemorySaver())
