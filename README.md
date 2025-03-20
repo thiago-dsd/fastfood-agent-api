@@ -1,6 +1,4 @@
-# 🧰 AI Agent Service Toolkit
-
-[![build status](https://github.com/ThiagoDias/agent-service-toolkit/actions/workflows/test.yml/badge.svg)](https://github.com/ThiagoDias/agent-service-toolkit/actions/workflows/test.yml) [![codecov](https://codecov.io/github/ThiagoDias/agent-service-toolkit/graph/badge.svg?token=5MTJSYWD05)](https://codecov.io/github/ThiagoDias/agent-service-toolkit) [![Python Version](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2FThiagoDias%2Fagent-service-toolkit%2Frefs%2Fheads%2Fmain%2Fpyproject.toml)](https://github.com/ThiagoDias/agent-service-toolkit/blob/main/pyproject.toml)
+# 🧰 FastFood Agent API
 
 Uma ferramenta completa para rodar um serviço de agente de IA baseado no LangGraph, FastAPI e Streamlit.
 
@@ -62,9 +60,3 @@ streamlit run src/streamlit_app.py
 ```sh
 curl -X POST "http://127.0.0.1:8000/orders" -H "Content-Type: application/json" -d '{"item": "Produto X", "quantidade": 2, "usuario": "Thiago"}'
 ```
-
-## 📜 Licença
-Este projeto está licenciado sob a licença MIT. Veja o arquivo LICENSE para mais detalhes.
-
----
-Criado por **Thiago Dias**.
