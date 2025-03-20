@@ -44,8 +44,7 @@ Seja paciente e educado!
 """)
 
 async def capture_order(state: AgentState, config: RunnableConfig) -> AgentState:
-    """Este nó examina o histórico da conversa para determinar os detalhes do pedido como uma string.
-    Se não houver detalhes suficientes, ele solicitará mais informações."""
+    """Este nó captura o primeiro pedido do usuário."""
     logging.info("CAPTURE ORDER")
     m = get_model(config["configurable"].get("model", settings.DEFAULT_MODEL))
     model_runnable = wrap_model(m, order_capture_prompt.format())
@@ -61,34 +60,33 @@ async def capture_order(state: AgentState, config: RunnableConfig) -> AgentState
     }
 
 async def confirm_order(state: AgentState, config: RunnableConfig) -> AgentState:
-    """Confirma os detalhes do pedido com o usuário."""
+    """Confirma os detalhes do pedido com o usuário. Dá a ele a opção de confirmar o pedido ou alterar."""
     logging.info("CONFIRM ORDER")
     m = get_model(config["configurable"].get("model", settings.DEFAULT_MODEL))
     model_runnable = wrap_model(m, confirmation_prompt.format())
 
     confirm_input = interrupt(
         f"Seu pedido:\n{state.get('order_details')}\n\n"
-        "Por favor, escolha uma opção:\n"
-        "1) Confirmar pedido\n"
-        "2) Alterar pedido"
+        "O que você deseja fazer?\n"
+        "✅ Digite **'confirmar'** para finalizar o pedido.\n"
+        "✏️ Digite **'alterar'** para modificar algo."
     )
+
     state["messages"].append(HumanMessage(confirm_input))
 
     user_response = confirm_input
 
     logging.info(f"user_response: {user_response}")
     
-    if user_response == "1":
-        logging.info("user_response == 1")
+    if user_response.lower() in ["confirmar", "sim", "ok"]:
         return {"confirmed": True}
-    elif user_response == "2":
-        logging.info("user_response == 2")
-        state["messages"].append(AIMessage("Certo, vamos alterar os pedidos!"))
+    elif user_response.lower() in ["alterar", "editar", "mudar"]:
+        state["messages"].append(AIMessage("Certo! Vamos ajustar seu pedido. ✏️"))
         return {"confirmed": False}
     else:
-        logging.info("user_response == ELSE")
-        state["messages"].append(AIMessage("Valor inválido! Por favor, escolha entre as opções abaixo para continuar."))
+        state["messages"].append(AIMessage("Desculpe, não entendi. Digite 'confirmar' ou 'alterar'."))
         return {"confirmed": False}
+
 
 async def update_order(state: AgentState, config: RunnableConfig) -> AgentState:
     """Este nó atualiza os detalhes do pedido com base nas novas informações fornecidas pelo usuário."""
@@ -124,27 +122,26 @@ async def update_order(state: AgentState, config: RunnableConfig) -> AgentState:
     }
 
 async def register_order(state: AgentState, config: RunnableConfig) -> AgentState:
-    """Registra o pedido no banco de dados e finaliza o fluxo."""
+    """Agradece pelo pedido e finaliza o fluxo."""
     logging.info("REGISTER ORDER")
-     # order_id = register_order_in_db(state.get('order_details'))
-    order_id = "123213"
 
     final_message = (
-        f"✅ Pedido registrado com sucesso! Número do pedido: {order_id}\n"
+        f"✅ Pedido registrado com sucesso!\n"
         "Agradecemos sua preferência! Seu pedido já está a caminho. 🚚\n"
         "Se quiser fazer outro pedido, é só mandar uma mensagem aqui no chat!"
     )
 
-    state["messages"].append(AIMessage(final_message))
+    logging.info("adicionando final message")
+    state["messages"].append(AIMessage(
+        content=final_message,
+        response_metadata={
+            "order_details": {
+                "description": state.get("order_details"),
+            }
+        }
+    ))
 
     return state
-
-# Função auxiliar para registrar o pedido no banco de dados
-def register_order_in_db(order_details: str) -> str:
-    """Registra o pedido no banco de dados e retorna o ID."""
-    # Implemente a lógica de registro aqui
-    return "12345"  # Simula um ID de pedido
-
 
 def check_confirmation(state: AgentState) -> Literal["register_order", "update_order"]:
     """Verifica se o pedido foi confirmado e retorna o próximo nó."""
@@ -163,8 +160,7 @@ agent.add_node("register_order", register_order)
 agent.set_entry_point("capture_order")
 
 agent.add_edge("capture_order", "confirm_order")
-agent.add_edge("confirm_order", "update_order")
-agent.add_edge("update_order", "confirm_order")
+agent.add_edge("update_order", "capture_order")
 agent.add_edge("register_order", END)
 
 agent.add_conditional_edges(
