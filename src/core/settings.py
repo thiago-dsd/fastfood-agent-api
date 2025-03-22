@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     PORT: int = 8080
 
     AUTH_SECRET: SecretStr | None = None
-    AUTH_API_URL: SecretStr | None = None
+    AUTH_API_URL: str | None = None
 
     OPENAI_API_KEY: SecretStr | None = None
     DEEPSEEK_API_KEY: SecretStr | None = None
