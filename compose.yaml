@@ -7,6 +7,8 @@ services:
       - "8080:8080"
     env_file:
       - .env
+    networks:
+      - fastfood-network
     develop:
       watch:
         - path: src/agents/
@@ -46,3 +48,7 @@ services:
         - path: src/streamlit_app.py
           action: sync+restart
           target: /app/streamlit_app.py
+
+networks:
+  fastfood-network:
+    external: true

@@ -15,6 +15,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command, Interrupt
 from langsmith import Client as LangsmithClient
+from pydantic import BaseModel
 
 from agents import DEFAULT_AGENT, get_agent, get_all_agent_info
 from core import settings
@@ -50,6 +51,52 @@ def verify_bearer(
     auth_secret = settings.AUTH_SECRET.get_secret_value()
     if not http_auth or http_auth.credentials != auth_secret:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+    
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from typing import Tuple
+import requests
+
+class User(BaseModel):
+    id: str
+    name: str
+    email: str
+    role: str
+    
+def user_middleware(
+    credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
+) -> Tuple[User, str]:
+    token = f"{credentials.scheme} {credentials.credentials}"
+
+    try:
+        response = requests.get(
+            f"{settings.AUTH_API_URL}/user/me", 
+            headers={
+                "accept": "application/json",
+                "Authorization": token
+        })
+
+        if response.status_code != 200:
+            print(f"Error: Received status code {response.status_code} from auth API")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication credentials",
+            )
+
+        user_data = response.json()
+        user = User(
+            id=user_data["id"],
+            name=user_data["name"],
+            email=user_data["email"],
+            role=user_data["role"],
+        )
+
+        return user, token
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+        ) from exc
 
 
 @asynccontextmanager
@@ -71,7 +118,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 app = FastAPI(lifespan=lifespan)
-router = APIRouter(dependencies=[Depends(verify_bearer)])
+router = APIRouter(dependencies=[Depends(user_middleware)])
 
 
 @router.get("/info")
