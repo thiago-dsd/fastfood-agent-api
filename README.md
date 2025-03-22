@@ -25,23 +25,22 @@ Agente de IA baseado no LangGraph e FastAPI.
 ![Logo do Projeto](./media/agent_graph.png)
 
 ## 🚀 Como Rodar o Projeto
-
-### 1️⃣ Clonar o Repositório
-```sh
-git clone https://github.com/ThiagoDias/agent-service-toolkit.git
-cd agent-service-toolkit
-```
-
-### 2️⃣ Configurar as Variáveis de Ambiente
+### 1️⃣ Configurar as Variáveis de Ambiente
 Crie um arquivo `.env` e adicione suas credenciais:
 ```sh
 echo 'OPENAI_API_KEY=sua_chave_openai' >> .env
 ```
 
-### 3️⃣ Rodar com Python
+### 2️⃣ Instalar Dependências e Executar com Python
 ```sh
 pip install uv
 uv sync --frozen
 source .venv/bin/activate
 python src/service/service.py
+```
+
+### 3️⃣ Rodar com Docker
+```sh
+docker build -t fastfodd-agent-api .
+docker run --env-file .env fastfodd-agent-api
 ```
