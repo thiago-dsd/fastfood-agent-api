@@ -22,7 +22,7 @@ Agente de IA baseado no LangGraph e FastAPI.
 └── README.md
 ```
 ### FastFood Agent Grafo
-![Logo do Projeto](./media/agent_graph.png)
+![Grafo do Agente](./media/agent_graph.png)
 
 ## 🚀 Como Rodar o Projeto
 ### 1️⃣ Configurar as Variáveis de Ambiente
