@@ -66,27 +66,42 @@ class ConfirmOrderExtraction(BaseModel):
 
 
 background_prompt = SystemMessagePromptTemplate.from_template("""
-    You are a caring food service assistant who guides customers through placing and recording orders.
-    You provide information about possible orders and help customers complete their order for recording.
-    """)
+    Você é o assistente digital da Lanchonete FASTFOOD. 
+
+    INÍCIO DA CONVERSA:
+    "Olá! Vamos montar seu pedido passo a passo. Você precisa informar:
+    1. O que deseja pedir
+    2. Quantidades
+    3. Detalhes importantes (tamanho, modificações)
+
+    EXEMPLO RÁPIDO:
+    'Quero 1 X-Salada médio sem cebola e 2 refrigerantes pequenos'
+
+    Podemos começar? O que vai pedir hoje?"
+""")
 
 capture_order_extraction_prompt = SystemMessagePromptTemplate.from_template("""
-    Você é um atendente de lanchonete atencioso, responsável por coletar e finalizar os pedidos dos clientes.
+    Você é um assistente especializado em capturar pedidos de lanchonete com precisão. 
 
-    Regras para registrar pedidos:
-    - Aceite apenas pedidos de produtos comestíveis disponíveis no cardápio.
-    - Não aceite pedidos que contenham linguagem inadequada ou palavrões.
-    - Esclareça detalhes ambíguos ou inconsistentes antes de finalizar.
-    - Certifique-se de que cada item tenha quantidade e tamanho claramente especificados.
-    - Antes de finalizar, confirme se o cliente deseja adicionar alguma observação especial.
-    """)
+    REGRAS PARA PEDIDO COMPLETO:
+    Um pedido é completo quando contém PELO MENOS 2 dos 9 elementos abaixo:
+    ✓ Itens solicitados (obrigatório)
+    ✓ Quantidades de cada item - opicional
+    ✓ Tamanhos (quando aplicável) - opicional
+    ✓ Modificações/preferências (ex: sem cebola)  - opicional
+    ✓ Sabor (quando aplicável) - opicional
+    ✓ Acompanhamentos (molhos extra, bordas, etc.) - opicional
+    ✓ Adicionais (bacon extra, queijo extra, etc.) - opicional
+                                                                            
+    Um pedido completo não pode conter palavrões ou items não comestíveis.  
+""")
 
 confirm_order_extraction_prompt = SystemMessagePromptTemplate.from_template("""
     Você é um atendente de lanchonete responsável por confirmar com o cliente o pedido.
                                                                             
     Regras para confirmar pedidos:
     O Cliente pode confirmar o pedido ou solicitar alterações nele.
-    """)
+""")
 
 def wrap_model(model: BaseChatModel, system_prompt: SystemMessage) -> RunnableSerializable[AgentState, AIMessage]:
 
@@ -123,7 +138,7 @@ async def capture_order(state: AgentState, config: RunnableConfig) -> AgentState
     response = cast(CaptureOrderExtraction, response)
     logging.info(f"Resposta do modelo recebida: {response}")
 
-    if response.step is "more_details":
+    if response.step == "more_details":
         logging.warning("Pedido precisa de mais detalhes - step is more_details")
         logging.info(f"Motivo fornecido pelo modelo: {response.reasoning}")
         capture_intention = interrupt(f"{response.reasoning}\n" "Quais alterações você deseja realizar no pedido?")
@@ -146,7 +161,7 @@ async def confirm_order(state: AgentState, config: RunnableConfig) -> AgentState
     response = await model_runnable.ainvoke(state, config)
     response = cast(ConfirmOrderExtraction, response)
 
-    if response.step is "change_order":
+    if response.step == "change_order":
         logging.warning("Usuário deseja alterar o pedido - step is change_order")
         logging.info(f"Motivo fornecido pelo modelo: {response.reasoning}")
         order_intention = interrupt(f"Você deseja alterar ou finalizar seu pedido?")
