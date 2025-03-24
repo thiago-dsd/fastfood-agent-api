@@ -35,7 +35,11 @@ echo 'OPENAI_API_KEY=sua_chave_openai' >> .env
 ```sh
 pip install uv
 uv sync --frozen
-source .venv/bin/activate
+
+source .venv/bin/activate  # Linux/Mac
+# OU
+.venv\Scripts\activate  # Windows
+
 python src/service/service.py
 ```
 
