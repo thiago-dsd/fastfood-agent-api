@@ -25,8 +25,9 @@ Agente de IA baseado no LangGraph e FastAPI.
 ![Grafo do Agente](./media/agent_graph.png)
 
 ## 🚀 Como Rodar o Projeto
-### 1️⃣ Configurar as Variáveis de Ambiente
-Crie um arquivo `.env` e adicione suas credenciais:
+### 0️⃣ Configurar as Variáveis de Ambiente
+Altere o nome do seu arquivo `.env.example` para `.env`
+Adicione suas credenciais:
 ```sh
 echo 'OPENAI_API_KEY=sua_chave_openai' >> .env
 ```
