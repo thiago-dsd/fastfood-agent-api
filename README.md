@@ -25,7 +25,7 @@ Agente de IA baseado no LangGraph e FastAPI.
 ![Grafo do Agente](./media/agent_graph.png)
 
 ## 🚀 Como Rodar o Projeto
-### 0️⃣ Configurar as Variáveis de Ambiente
+### 1️⃣ Configurar as Variáveis de Ambiente
 Altere o nome do seu arquivo `.env.example` para `.env`
 Adicione suas credenciais:
 ```sh
@@ -36,7 +36,11 @@ echo 'OPENAI_API_KEY=sua_chave_openai' >> .env
 ```sh
 pip install uv
 uv sync --frozen
+```
 
+Lembre-se de adicionar o Uvicorn as variáveis de ambiente.
+
+```sh
 source .venv/bin/activate  # Linux/Mac
 # OU
 .venv\Scripts\activate  # Windows
