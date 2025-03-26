@@ -46,6 +46,5 @@ python src/service/service.py
 
 ### 3️⃣ Rodar com Docker
 ```sh
-docker build -t fastfodd-agent-api .
-docker run --env-file .env fastfodd-agent-api
+docker compose up --build
 ```
