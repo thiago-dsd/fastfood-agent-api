@@ -48,7 +48,3 @@ services:
         - path: src/streamlit_app.py
           action: sync+restart
           target: /app/streamlit_app.py
-
-networks:
-  fastfood-network:
-    external: true
