@@ -208,18 +208,15 @@ def confirm_route_confirmation(state: AgentState) -> str:
     elif state["confirm_order_state"] == "confirm_order":
         return "register_order" 
 
-# Cria o grafo do agente
 agent = StateGraph(AgentState)
 agent.add_node("background", background)
 agent.add_node("capture_order", capture_order)
 agent.add_node("confirm_order", confirm_order)
 agent.add_node("register_order", register_order)
 
-# Define o ponto de entrada
 agent.set_entry_point("background")
 agent.add_edge("background", "capture_order")
 
-# Adiciona arestas condicionais
 agent.add_conditional_edges(
     "capture_order",
     capture_route_confirmation,
